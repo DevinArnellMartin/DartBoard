@@ -4,6 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'perfil.dart';
+import 'ajustes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,30 +35,30 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Message Boards'),
+      home: const HomePage(title: 'Message Boards'),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+class HomePage extends StatefulWidget {
+  const HomePage({super.key, required this.title});
   final String title;
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<HomePage> createState() => HomeState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class HomeState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
+        title: const Text('Home'),
       ),
-      body: Center(
-        child: const Text(
-          'Welcome to the Messaging Board!',
+      body: const Center(
+        child: Text(
+          'Message Board!',
           style: TextStyle(fontSize: 20),
         ),
       ),
@@ -64,24 +66,33 @@ class _MyHomePageState extends State<MyHomePage> {
         child: ListView(
           children: [
             ListTile(
-              title: const Text('Message Boards'),
+              title: const Text('Boards'),
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const MessageBoardScreen()),
+                  MaterialPageRoute(
+                      builder: (context) => const MessageBoardScreen()),
                 );
               },
             ),
             ListTile(
               title: const Text('Profile'),
               onTap: () {
-                // Navigate to profile screen (To be implemented)
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const ProfileScreen()),
+                );
               },
             ),
             ListTile(
               title: const Text('Settings'),
               onTap: () {
-                // Navigate to settings screen (To be implemented)
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const SettingsScreen()),
+                );
               },
             ),
           ],
@@ -90,6 +101,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 }
+
 
 class MessageBoardScreen extends StatelessWidget {
   const MessageBoardScreen({super.key});
@@ -143,21 +155,21 @@ class NewMessageScreen extends StatefulWidget {
   const NewMessageScreen({super.key});
 
   @override
-  State<NewMessageScreen> createState() => _NewMessageScreenState();
+  State<NewMessageScreen> createState() => MSGScreenState();
 }
 
-class _NewMessageScreenState extends State<NewMessageScreen> {
-  final TextEditingController _messageController = TextEditingController();
+class MSGScreenState extends State<NewMessageScreen> {
+  final TextEditingController msgControl = TextEditingController();
 
-  void _sendMessage() async {
-    final message = _messageController.text.trim();
+  void sendMessage() async {
+    final message = msgControl.text.trim();
     if (message.isNotEmpty) {
       await FirebaseFirestore.instance.collection('messageBoards').add({
         'username': FirebaseAuth.instance.currentUser?.displayName ?? 'Anonymous',
         'message': message,
         'timestamp': FieldValue.serverTimestamp(),
       });
-      _messageController.clear();
+      msgControl.clear();
       Navigator.pop(context);
     }
   }
@@ -173,7 +185,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
         child: Column(
           children: [
             TextField(
-              controller: _messageController,
+              controller: msgControl,
               decoration: const InputDecoration(
                 labelText: 'Enter your message',
                 border: OutlineInputBorder(),
@@ -182,7 +194,7 @@ class _NewMessageScreenState extends State<NewMessageScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _sendMessage,
+              onPressed: sendMessage,
               child: const Text('Send'),
             ),
           ],
