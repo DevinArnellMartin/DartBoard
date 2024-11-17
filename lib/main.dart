@@ -1,26 +1,27 @@
+import 'perfil.dart';
+import 'ajustes.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'perfil.dart';
-import 'ajustes.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load();
   await Firebase.initializeApp(
     options: FirebaseOptions(
-      apiKey: dotenv.env['API_KEY']!,
-      authDomain: dotenv.env['AUTH_DOMAIN']!,
-      projectId: dotenv.env['PROJECT_ID']!,
-      storageBucket: dotenv.env['STORAGE_BUCKET']!,
-      messagingSenderId: dotenv.env['MESSAGING_SENDER_ID']!,
-      appId: dotenv.env['APP_ID']!,
-      measurementId: dotenv.env['MEASUREMENT_ID']!,
+      apiKey: dotenv.env['API_KEY'] ?? '',
+      authDomain: dotenv.env['AUTH_DOMAIN'] ?? '',
+      projectId: dotenv.env['PROJECT_ID'] ?? '',
+      storageBucket: dotenv.env['STORAGE_BUCKET'] ?? '',
+      messagingSenderId: dotenv.env['MESSAGING_SENDER_ID'] ?? '',
+      appId: dotenv.env['APP_ID'] ?? '',
+      measurementId: dotenv.env['MEASUREMENT_ID'] ?? '',
     ),
-  ); 
+  );
+
   runApp(const MyApp());
 }
 
@@ -66,12 +67,26 @@ class HomeState extends State<HomePage> {
         child: ListView(
           children: [
             ListTile(
-              title: const Text('Boards'),
+              title: const Text('Politics Board'),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => const MessageBoardScreen()),
+                    builder: (context) =>
+                        const MessageBoardScreen(boardType: 'Politics'),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              title: const Text('Games Board'),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const MessageBoardScreen(boardType: 'Games'),
+                  ),
                 );
               },
             ),
@@ -81,7 +96,8 @@ class HomeState extends State<HomePage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => const ProfileScreen()),
+                    builder: (context) => const ProfileScreen(),
+                  ),
                 );
               },
             ),
@@ -91,7 +107,8 @@ class HomeState extends State<HomePage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (context) => const SettingsScreen()),
+                    builder: (context) => const SettingsScreen(),
+                  ),
                 );
               },
             ),
@@ -102,104 +119,86 @@ class HomeState extends State<HomePage> {
   }
 }
 
-
 class MessageBoardScreen extends StatelessWidget {
-  const MessageBoardScreen({super.key});
+  final String boardType;
+
+  const MessageBoardScreen({Key? key, required this.boardType})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Message Board'),
+        title: Text('$boardType Board'),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('messageBoards')
-            .orderBy('timestamp', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final messages = snapshot.data!.docs;
-          return ListView(
-            children: messages.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              return ListTile(
-                title: Text(data['username'] ?? 'Anonymous'),
-                subtitle: Text(data['message'] ?? ''),
-                trailing: data['timestamp'] != null
-                    ? Text(
-                        (data['timestamp'] as Timestamp).toDate().toString(),
-                      )
-                    : const Text(''),
-              );
-            }).toList(),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const NewMessageScreen()),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-}
+      body: Column(
+        children: [
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('messageBoards')
+                  .doc(boardType)
+                  .collection('messages')
+                  .where('timestamp', isNull: false) 
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-class NewMessageScreen extends StatefulWidget {
-  const NewMessageScreen({super.key});
+                final docs = snapshot.data!.docs;
+                if (docs.isEmpty) {
+                  return const Center(
+                    child: Text('No messages yet.'),
+                  );
+                }
 
-  @override
-  State<NewMessageScreen> createState() => MSGScreenState();
-}
+                return ListView(
+                  children: docs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final timestamp = data['timestamp'] as Timestamp?;
+                    final formattedDate = timestamp != null
+                        ? timestamp.toDate().toString().substring(0, 16)
+                        : 'Unknown';
 
-class MSGScreenState extends State<NewMessageScreen> {
-  final TextEditingController msgControl = TextEditingController();
-
-  void sendMessage() async {
-    final message = msgControl.text.trim();
-    if (message.isNotEmpty) {
-      await FirebaseFirestore.instance.collection('messageBoards').add({
-        'username': FirebaseAuth.instance.currentUser?.displayName ?? 'Anonymous',
-        'message': message,
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-      msgControl.clear();
-      Navigator.pop(context);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('New Message'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: msgControl,
+                    return ListTile(
+                      title: Text(data['message'] ?? 'No msg'),
+                      subtitle: Text(data['username'] ?? 'AnonyMoose-Goose'),
+                      trailing: Text(formattedDate),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              onSubmitted: (message) {
+                if (message.trim().isNotEmpty) {
+                  FirebaseFirestore.instance
+                      .collection('messageBoards')
+                      .doc(boardType)
+                      .collection('messages')
+                      .add({
+                    'message': message,
+                    'username':
+                        FirebaseAuth.instance.currentUser?.displayName ??
+                            'Anonymous',
+                    'timestamp': FieldValue.serverTimestamp(),
+                  });
+                }
+              },
               decoration: const InputDecoration(
-                labelText: 'Enter your message',
+                hintText: 'Type your message',
                 border: OutlineInputBorder(),
               ),
-              maxLines: 3,
             ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: sendMessage,
-              child: const Text('Send'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
+
